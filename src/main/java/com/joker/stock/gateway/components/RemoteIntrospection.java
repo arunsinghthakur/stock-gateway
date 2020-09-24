@@ -1,42 +1,43 @@
-package com.joker.stock.gateway.service;
+package com.joker.stock.gateway.components;
 
-import com.google.gson.Gson;
 import graphql.introspection.IntrospectionResultToSchema;
 import graphql.language.Document;
 import graphql.schema.idl.SchemaPrinter;
-import okhttp3.*;
-import org.springframework.stereotype.Service;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
-@Service
-public class RemoteIntrospectionService {
-    private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
+public class RemoteIntrospection {
 
-    public Reader get(String url) {
-        Gson gson = new Gson();
-        OkHttpClient client = new OkHttpClient();
-        Map<String, Object> bodyMap = new HashMap() {{
-            put("query", introspectionQuery());
-        }};
-        String json = gson.toJson(bodyMap);
-        RequestBody body = RequestBody.create(json, JSON_MEDIA_TYPE);
-        Request request = new Request.Builder()
-                .url(url)
-                .post(body)
-                .build();
+    private final WebClient webClient;
+
+    public RemoteIntrospection(String url, WebClient.Builder webClientConfigBuilder) {
+        this.webClient = webClientConfigBuilder.baseUrl(url).build();
+    }
+
+    public Reader get() {
         try {
-            Response response = client.newCall(request).execute();
-            Map<String, Object> introspectionResult = gson.fromJson(response.body().string(), HashMap.class);
-            Document schema = new IntrospectionResultToSchema().createSchemaDefinition((Map<String, Object>) introspectionResult.get("data"));
-            String printedSchema = new SchemaPrinter().print(schema);
-            return new StringReader(printedSchema);
-        } catch (IOException ex) {
-            ex.printStackTrace();
+            return webClient.post()
+                    .header(HttpHeaders.CONTENT_TYPE, org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+                    .syncBody(Collections.singletonMap("query", introspectionQuery()))
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .flatMap(introspectionResult -> {
+                        Document schema = new IntrospectionResultToSchema().createSchemaDefinition((Map<String, Object>) introspectionResult.get("data"));
+                        String printedSchema = new SchemaPrinter().print(schema);
+                        return Mono.just(new StringReader(printedSchema));
+                    }).toFuture().get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return new StringReader("");
+        } catch (ExecutionException e) {
+            e.printStackTrace();
             return new StringReader("");
         }
     }

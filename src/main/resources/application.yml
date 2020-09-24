@@ -1,17 +1,2 @@
-graphql:
-  servlet:
-    mapping: /graphql
-    enabled: true
-    corsEnabled: true
 server:
   port: 8083
-
-stock:
-  service:
-    namespace: stock
-    url: http://localhost:8081/graphql
-
-stock-price:
-  service:
-    namespace: stock-price
-    url: http://localhost:8082/graphql

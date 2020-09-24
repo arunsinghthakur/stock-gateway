@@ -1,0 +1,42 @@
+schemaSources:
+  - namespace: "stocks"
+    url: http://localhost:8081/graphql
+    schema: |
+      schema {
+        query: Query
+      }
+      type Query {
+        getAllStocks: [StockDto]
+      }
+      type StockDto {
+          uuid: String!
+          stockCode: String!
+          companyName: String!
+          stockExchange: String!
+          stockPrice: stockCode!
+      }
+    complexLinks:
+      - sourceType: StockDto
+        field: stockPrice
+        targetNamespace: stockPrices
+        targetType: StockPriceDto
+        topLevelQueryField: getStockPrice
+        arguments:
+          - sourceName: stockCode
+            argumentSource: OBJECT_FIELD
+            queryArgumentName: stockCode
+  - namespace: "stockPrices"
+    url: http://localhost:8082/graphql
+    schema: |
+      schema {
+        query: Query
+      }
+      type Query {
+          getStockPrice(stockCode: String): StockPriceDto
+      }
+
+      type StockPriceDto {
+          stockCode: String!
+          oldPrice: String!
+          newPrice: String!
+      }
